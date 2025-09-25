@@ -1,3 +1,6 @@
+
+package predictivetext;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -5,13 +8,12 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 import java.util.Scanner;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 
 class Stack
 {
@@ -19,22 +21,23 @@ class Stack
 	String[] arr=new String[5];
     public Stack() {
     try {
-        File Obj = new File("stack.txt");
-        Scanner Reader = new Scanner(Obj);
+        File obj = new File("stack.txt");
+        Scanner reader = new Scanner(obj);
 		arr[0]="recent searches:";
 		arr[4]="---------------";
         int i = 1;
-        while (Reader.hasNextLine()) {
+        while (reader.hasNextLine()) {
 			if(i<4)
 			{
-            arr[i] = Reader.nextLine();
-            i++;
+	            arr[i] = reader.nextLine();
+	            i++;
 			}
         }
 		top=i-1;
-        Reader.close();
-    } catch (Exception e) {
-        System.out.print("error");
+        reader.close();
+    } 
+    catch (Exception e) {
+        System.out.print("error:"+e.getMessage());
     }
 	}
 	public void push(String data)
@@ -55,7 +58,7 @@ class Stack
 			arr[top]=data;
 		}
 		BufferedWriter bw=new BufferedWriter(new FileWriter("stack.txt"));
-		for(int i=arr.length-2;i>=1;i--)
+		for(int i=1;i<4;i++)
 		{
 			 bw.write(arr[i]);
              bw.newLine();
@@ -77,27 +80,139 @@ class Stack
 	{
 		return arr;
 	}
-	public String[] joinArray(String[] x,String[] y)
+	public String[] joinArray(String[] x,ArrayList<String> y)
 	{
-		String[] z=new String[x.length+y.length];
+		String[] z=new String[x.length+y.size()];
 		int j=0;
 		int k=0;
-		for(int i=0;i<x.length+y.length;i++)
+		for(int i=0;i<x.length+y.size();i++)
 		{
-			if(i<5)
-			{
-				z[i]=x[j];
-				j++;
-			}
-			else
-			{
-				z[i]=y[k];
-				k++;
-			}
+				if(i<5)
+				{
+					z[i]=x[j];
+					j++;
+				}
+				else
+				{
+					z[i]=y.get(k);
+					k++;
+				}
 		}
+		
 		return z;
 	}
 	
+}
+class Trie
+{
+	public Trie[] node;
+	public int wordcount;
+	boolean endOfWord=false;
+	Trie()
+	{
+		node=new Trie[27];
+		wordcount=0;
+	}
+	static void insert(Trie root, String key)
+	{
+	    Trie data = root;
+
+	    for (int i = 0; i < key.length(); i++) {
+	        int index;
+	        if(key.charAt(i)==' ')
+	        {
+	            index=26;
+	        }
+	        else
+	        {
+	            index = key.charAt(i) - 'a';
+	        }
+	        if (data.node[index] == null) 
+	        {
+
+	            data.node[index] = new Trie();
+	        }
+	        data = data.node[index];
+	        if(i==key.length()-1)
+	        {
+	            data.endOfWord=true;
+	        }
+	    }
+	    data.wordcount++;
+	}
+    static boolean search(Trie root, String key)
+	{
+	    Trie data = root;
+
+	    for (int i = 0; i < key.length(); i++) {
+	        int index;
+	        if(key.charAt(i)==' ')
+	        {
+	            index=26;
+	        }
+	        else
+	        {
+	            index = key.charAt(i) - 'a';
+	        }
+	        if (data.node[index] == null)
+	            return false;
+	        data = data.node[index];
+	    }
+	    return true;
+	}
+	static void fetchTrie(Trie tr,String prefix,ArrayList<String> al)
+    {
+        Trie data=tr;
+        if(data==null)
+        {
+            return ;
+        }
+        if(data.endOfWord==true)
+        {
+    			 al.add(prefix);
+        }
+        
+        for(int i=0;i<27;i++)
+        {
+            if(data.node[i]!=null)
+            {
+                char temp;
+                if(i==26)
+                {
+                    temp=' ';
+                }
+                else
+                {
+                    temp=(char)(i+97);
+                }
+                fetchTrie(data.node[i],prefix+temp,al);
+            }
+            
+        }
+       
+       
+    }
+	static Trie getPostPrefix(Trie tr,String str)
+	{
+		for(int i=0;i<str.length();i++)
+		{
+		    int val;
+		    if(str.charAt(i)==' ')
+		    {
+		        val=26;
+		    }
+		    else
+		    {
+		        val=(int)(str.charAt(i))-97;
+		    }
+		    if(tr.node[val]!=null)
+		    {
+		        tr=tr.node[val];
+		    }
+		}
+		return tr;
+	}
+
 }
 class Front extends JFrame implements ActionListener
 {
@@ -105,15 +220,16 @@ class Front extends JFrame implements ActionListener
 	JLabel l;
 	JTextField tf;
 	JButton b;
+	Connection conn;
 	Stack st=new Stack();
 	String[] stk=st.getStack();
-	String[] textdata={"rahul","vikrant","abhishek","mayank","navneet"};
+	ArrayList<String> textdata=new ArrayList<String>();
 	String[] items=st.joinArray(stk,textdata);
     JComboBox<String> cb = new JComboBox<>(items);
 	JFrame f=new JFrame();
-	Front()
+	Front(Connection c)
 	{
-		
+		conn=c;
 		f.setSize(600,350);
 		f.setLocation(450,250);
 		f.setTitle("Predictive text example");
@@ -126,7 +242,10 @@ class Front extends JFrame implements ActionListener
 		tf.setBounds(75,135,350,30);
 		b.setBounds(428,135,80,30);
 		cb.setBounds(75,135,350,30);
-		cb.setVisible(false);
+		cb.setVisible(true);
+		
+		
+         
 		tf.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) {
                 updateSuggestions();
@@ -138,13 +257,79 @@ class Front extends JFrame implements ActionListener
                 updateSuggestions();
             }
             private void updateSuggestions() {
+            	    
                 String input = tf.getText();
-                if (input.isEmpty()) {
-                    cb.setVisible(false);
+                if (input.isEmpty()) 
+                {
                     return;
                 }
-				cb.setVisible(true);
-                cb.setPopupVisible(true);
+                else
+                {
+                		ArrayList<String> textdata=new ArrayList<String>();
+                		String[] recent=new String[5];
+        				recent=st.getStack();
+                		char k=input.charAt(0);
+                		String str=input;
+                		Trie tr=new Trie();
+                		ArrayList<String> list=new ArrayList<String>(); 
+                		if(k==' ')
+                		{
+                			str=input.substring(1,input.length());
+                		}
+                		else
+                		{
+                			l.setText("");
+	                		String query1="SELECT COUNT(*) "
+	                				+ "FROM information_schema.tables "
+	                				+ "WHERE table_schema = 'satyam' AND table_name = '"+k+"';";
+	                		String query="select data from "+k+";";
+	                		try
+	                		{
+							Statement statement=conn.createStatement();
+							ResultSet rs1=statement.executeQuery(query1);
+							if(rs1.next())
+							{
+								int count=rs1.getInt(1);
+								if(count>0)
+								{
+									ResultSet rs=statement.executeQuery(query);
+									
+									while(rs.next())
+									{
+										textdata.add(rs.getString("data"));
+									}
+								}
+							}
+							for(int i=0;i<textdata.size();i++)
+		                		{
+								String lower=textdata.get(i).toLowerCase();
+		                			tr.insert(tr, lower);
+		                		}
+							boolean ch=false;
+							for(int i=0;i<textdata.size();i++)
+	            				{
+	            					if(textdata.get(i).contains(str))
+	            					{
+	            						ch=true;
+	            					}
+	            				}
+	                			if(ch)
+	                			{
+	                				tr.fetchTrie(tr.getPostPrefix(tr, str),str,list);
+	                			}
+		                		
+						} 
+	                		catch (SQLException e) 
+	                		{
+							e.printStackTrace();
+						}
+                		}
+                		String[] newitems=st.joinArray(recent,list);
+                		cb.setModel(new DefaultComboBoxModel<>(newitems));
+                		cb.setVisible(true);
+                		cb.setPopupVisible(true);
+                }
+			
             }
         });
 		f.add(l);
@@ -165,12 +350,37 @@ class Front extends JFrame implements ActionListener
 					l.setText(t);
 					st.push(t);
 				}
-				String[] recent=new String[3];
-				recent=st.getStack();
-				String[] textdata={"rahul","vikrant","abhishek","mayank","navneet"};
+				String[] recent=st.getStack();
+				String a=tf.getText();
+				char v=a.charAt(0);
+				String query="create table if not exists "+v+"(data varchar(30) primary key,priority int(10));";
+				String query1="insert ignore into "+v+"(data,priority) values('"+a+"',0);";
+				Statement statement;
+				try {
+					statement = conn.createStatement();
+					statement.executeUpdate(query);
+					statement.executeUpdate(query1);
+				} catch (SQLException se) {
+					se.printStackTrace();
+				}
+				ArrayList<String> textdata=new ArrayList<String>();
 				String[] newitems=st.joinArray(recent,textdata);
-				cb.setVisible(false);
 				cb.setModel(new DefaultComboBoxModel<>(newitems));
+				JFrame f1= new JFrame();
+				JLabel ln1;
+				f1.setSize(400,250);
+				f1.setLayout(null);
+				f1.setLocation(550,300);
+				ln1=new JLabel("thank you for searching");
+				ln1.setBounds(0, 70, 200, 50);
+				f1.add(ln1);
+				f1.setVisible(true);
+				Timer timer = new Timer(50, q -> {
+	            int x = ln1.getX();
+	            x = (x >= 400) ? -150 : x + 1; 
+	            ln1.setBounds(x, 70, 200, 50);
+		        });
+		        timer.start();
 			}
 		});
 	
@@ -186,13 +396,11 @@ class Front extends JFrame implements ActionListener
 			{
 				if(cb.getSelectedItem().equals("recent searches:"))
 				{
-					cb.setVisible(true);
-					cb.setPopupVisible(true);
+					
 				}
 				else if(cb.getSelectedItem().equals("---------------"))
 				{
-					cb.setVisible(true);
-					cb.setPopupVisible(true);
+					
 				}
 				else
 				{
@@ -202,32 +410,58 @@ class Front extends JFrame implements ActionListener
 		}
 		if(ae.getSource()==b)
 		{
-		String t;
-		t=tf.getText();
-		if(!tf.getText().trim().isEmpty() || !tf.getText().equals("recent searches:"))
-		{
-			l.setText(t);
-			st.push(t);
-		}
-		String[] recent=new String[4];
-		recent=st.getStack();
-		String[] textdata={"rahul","vikrant","abhishek","mayank","navneet"};
-		String[] newitems=st.joinArray(recent,textdata);
-		cb.setVisible(false);
-		cb.setModel(new DefaultComboBoxModel<>(newitems));
+			String t;
+			t=tf.getText();
+			if(!tf.getText().trim().isEmpty() || !tf.getText().equals("recent searches:"))
+			{
+				l.setText(t);
+				st.push(t);
+			}
+			String[] recent=st.getStack();
+			String a=tf.getText();
+			char v=a.charAt(0);
+			String query="create table if not exists "+v+"(data varchar(30) primary key,priority int(10));";
+			String query1="insert ignore into "+v+"(data,priority) values('"+a+"',0);";
+			Statement statement;
+			try {
+				statement = conn.createStatement();
+				statement.executeUpdate(query);
+				statement.executeUpdate(query1);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			ArrayList<String> textdata=new ArrayList<String>();
+			String[] newitems=st.joinArray(recent,textdata);
+			cb.setModel(new DefaultComboBoxModel<>(newitems));
+			cb.setVisible(false);
+			JFrame f1= new JFrame();
+			JLabel ln1;
+			f1.setSize(400,250);
+			f1.setLayout(null);
+			f1.setLocation(550,300);
+			ln1=new JLabel("thank you for searching");
+			ln1.setBounds(0, 70, 200, 50);
+			f1.add(ln1);
+			f1.setVisible(true);
+			Timer timer = new Timer(50, e -> {
+            int x = ln1.getX();
+            x = (x >= 400) ? -150 : x + 1; 
+            ln1.setBounds(x, 70, 200, 50);
+	        });
+	        timer.start();
 		}
 		
 	}
 	public static void main(String[] args)
 	{
-		Front obj=new Front();
-		String url = "jdbc:mysql://localhost:3306/yourDatabaseName"; // Change this to your MySQL database URL
-        String username = "yourUsername";                          // Your MySQL username
-        String password = "yourPassword";                          // Your MySQL password
+		String url = "jdbc:mysql://localhost:3306/satyam"; 
+        String username = "root";                          
+        String password = "root";                          
 
         try {
             Connection conn = DriverManager.getConnection(url, username, password);
-            System.out.println("Database connected successfully without third-party software!");
+            System.out.println("Database connected successfully");
+            Front obj=new Front(conn);
         } catch (SQLException e) {
             System.out.println("Error connecting to the database: " + e.getMessage());
         }
